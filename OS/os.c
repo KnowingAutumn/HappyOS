@@ -1,8 +1,5 @@
 /*---------------------------------------
 -* File:    RTOS
--* AUTHOR： kite
--* E_MAIL:  1216104245@qq.com
--* TIME：   2017/03/06
 -* VERSION：V2.0
 -* MODIFY：	重写互斥信号量函数
 -*			修改OSTimeDly延时函数
