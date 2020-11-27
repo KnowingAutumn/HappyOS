@@ -1,10 +1,10 @@
 /*---------------------------------------
 -* File:    RTOS
--* VERSION：V2.0
+-* VERSION：V1.5
 -* MODIFY：	重写互斥信号量函数
 -*			修改OSTimeDly延时函数
 -*			修复消息队列消息满载bug
--* WARNING：此实时操作系统仅供学习参考，请勿用于商业用途！
+-* WARNING：此实时操作系统仅供学习参考，请勿用于商业用途，违者必究！
 -*---------------------------------------*/
 #define OS_SET
 #include "os.h"
@@ -28,32 +28,24 @@ __inline void OSGetHighRdy(void)
 	OS_PrioHighRdy=OS_NEXT_Prio;	
 }
 
-/*---------------------------------------
--* File: OS_TaskSuspend
--* Description：无条件挂起任务
--* Arguments:  	prio		任务优先级
--*---------------------------------------*/
+
 void OS_TaskSuspend(unsigned char prio)  
 {
 	unsigned int cpu_sr;
-    OS_ENTER_CRITICAL();                                  //进入临界区 
+    OS_ENTER_CRITICAL();                                  
 	if(prio ==OS_PRIO_SELF)
 		prio =OS_PrioCur;
-	else if(prio == OS_MAX_Task-1)		//不允许删除空闲任务
+	else if(prio == OS_MAX_Task-1)		
 		return ;
-    TCB_Task[prio].DLy =0; //使得中断里该任务不会被添加到就绪表
+    TCB_Task[prio].DLy =0; 
     OSDelPrioRdy(prio);         
-    OS_EXIT_CRITICAL();                                 //退出临界区   
-    if(OS_PrioCur == prio)       //挂起的任务为当前运行的任务 
+    OS_EXIT_CRITICAL();                                   
+    if(OS_PrioCur == prio)       
     {  
         OS_Sched(); 
     }  
 } 
-/*---------------------------------------
--* File: OS_TaskResume
--* Description：无条件唤醒任务
--* Arguments:  	prio		任务优先级
--*---------------------------------------*/
+
 void OS_TaskResume(u8 prio)  
 {  
     unsigned int cpu_sr;
@@ -69,29 +61,19 @@ void OS_TaskResume(u8 prio)
     }  
 }
 
-/*---------------------------------------
--* File: Task_End
--* Description：任务运行结束时进入此函数，理论上每个子任务都是一个死循环，不会结束
--* Arguments:  	void				
--*---------------------------------------*/
+
 void Task_End(void)
 {
 	while(1);
 }
 
-/*---------------------------------------
--* File: Arguments
--* Description：创建一个新的任务,初始化任务为待恢复状态
--* Arguments:  	task		任务函数名
--* 				stk			任务堆栈
--* 				prio		任务优先级
--*---------------------------------------*/
+
 void Task_Create(void (*task)(void),unsigned int *stk,unsigned char prio)
 {
 	unsigned int * p_stk;
 	p_stk=stk;
 	p_stk=(unsigned int *) ((unsigned int)(p_stk)&0xFFFFFFF8u);
-	//以下寄存器顺序和PendSV退出时寄存器恢复顺序一致
+	
 	*(--p_stk)=(unsigned int)0x01000000uL;//xPSR状态寄存器、第24位THUMB模式必须置位一 
 	*(--p_stk)=(unsigned int)task;//entry point//函数入口
 	*(--p_stk)=(unsigned int)Task_End ;//R14(LR);
@@ -110,17 +92,13 @@ void Task_Create(void (*task)(void),unsigned int *stk,unsigned char prio)
 	*(--p_stk)=(unsigned int)0x05050505uL;//R5
 	*(--p_stk)=(unsigned int)0x04040404uL;//R4
 	
-	TCB_Task[prio].StkPtr =p_stk;//将该任务控制块中应当指向栈顶的指针，指向了该任务的新栈顶
+	TCB_Task[prio].StkPtr =p_stk;
 	TCB_Task[prio].DLy =0;
 	
 	OSSetPrioRdy(prio);
 }
 
-/*---------------------------------------
--* File: OS_IDLE_Task
--* Description：空闲任务，防止CPU无事可干
--* Arguments:  	void				
--*---------------------------------------*/
+
 void OS_IDLE_Task(void)
 {
 	unsigned int IDLE_Count=0;
@@ -131,19 +109,15 @@ void OS_IDLE_Task(void)
 	}
 }
 
-/*---------------------------------------
--* File: OS_Sched
--* Description：任务调度函数，查找最高优先级任务并调度
--* Arguments:  	void				
--*---------------------------------------*/
+
 void OS_Sched(void)
 {
 	unsigned int cpu_sr;
-	OS_ENTER_CRITICAL();                                  //进入临界区
-	if(lock==0)										//如果调度器没上锁
+	OS_ENTER_CRITICAL();                                 
+	if(lock==0)										
 	{
-		OSGetHighRdy();    							//找出任务就绪表中优先级最高的任务
-		if(OS_PrioHighRdy!=OS_PrioCur)              //如果不是当前运行任务，进行任务调度
+		OSGetHighRdy();    							
+		if(OS_PrioHighRdy!=OS_PrioCur)             
 		{
 			p_TCBHightRdy=&TCB_Task[OS_PrioHighRdy];
 			//p_TCB_Cur=&TCB_Task[OS_PrioCur];
@@ -154,11 +128,7 @@ void OS_Sched(void)
 	OS_EXIT_CRITICAL();                                 //退出临界区
 }
 
-/*---------------------------------------
--* File: OS_SchedLock
--* Description：调度器上锁
--* Arguments:  	void				
--*---------------------------------------*/
+
 void OS_SchedLock(void)
 {
 	unsigned int cpu_sr;
@@ -167,49 +137,36 @@ void OS_SchedLock(void)
 	OS_EXIT_CRITICAL();                                 //退出临界区
 }
 
-/*---------------------------------------
--* File: OS_SchedUnlock
--* Description：调度器解锁
--* Arguments:  	void				
--*---------------------------------------*/
+
 void OS_SchedUnlock(void)
 {
 	unsigned int cpu_sr;
-	OS_ENTER_CRITICAL();                                  //进入临界区
+	OS_ENTER_CRITICAL();                                  
 	lock =0;
-	OS_EXIT_CRITICAL();                                 //退出临界区
+	OS_EXIT_CRITICAL();                                 
 	OS_Sched();
 }
-/*---------------------------------------
--* File: System_init
--* Description：系统(滴答)时钟初始化
--* Arguments:  	void
--*---------------------------------------*/
+
 void System_init(void)
 {
 	u32 reload;
 	SysTick_CLKSourceConfig(SysTick_CLKSource_HCLK_Div8);	//选择外部时钟  HCLK/8 
 	reload=SystemCoreClock/8000000;							//每秒钟的计数次数 单位为K	   
-	reload*=1000000/System_Ticks;		//根据System_Ticks设定溢出时间
-											//reload为24位寄存器,最大值:16777216,在72M下,约合1.86s左右	 
+	reload*=1000000/System_Ticks;		
+											
 	SysTick->CTRL|=SysTick_CTRL_TICKINT_Msk;   	//开启SYSTICK中断
 	SysTick->LOAD=reload; 		//每1/System_Ticks秒中断一次	
 	SysTick->CTRL|=SysTick_CTRL_ENABLE_Msk;   	//开启SYSTICK    
 
 }
 
-/*---------------------------------------
--* File: SysTick_Handler
--* Description：系统(滴答)时钟中断,每1000/System_Ticks ms中断一次
--* Arguments:  	void
--*---------------------------------------*/
+
 void SysTick_Handler(void)
 {
 	unsigned int cpu_sr;
 	unsigned char i=0;
 	OS_Tisks++;
-	//OSIntNesting++;//对于Cortex-M3,任务切换是由pendsv中断实现的，而pendsv中断的优先级最低
-	//即使中断嵌套发生了任务调度也没事，真正的任务切换也不会发生，只是触发了pendsv中断了而已
+
 	for(;i<OS_MAX_Task;i++)
     {
 		OS_ENTER_CRITICAL();
@@ -227,11 +184,7 @@ void SysTick_Handler(void)
 	OS_Sched();//都是由pendsv中断进行调度
 }
 
-/*---------------------------------------
--* File: OS_Start
--* Description：创建一个空闲任务，系统开始运行
--* Arguments:  	void
--*---------------------------------------*/
+
 void OS_Start(void)
 {
 	System_init();
@@ -244,31 +197,23 @@ void OS_Start(void)
 	OSStartHighRdy();
 }
 
-/*---------------------------------------
--* File: OSTimeDly
--* Description：系统延时
--* Arguments:  	ticks		延时时间
--*---------------------------------------*/
+
 void OSTimeDly(unsigned int ticks)
 {
 	if(ticks> 0)
 	{
 		unsigned int cpu_sr;
-		OS_ENTER_CRITICAL();                                  //进入临界区
-		OSDelPrioRdy(OS_PrioCur);                             //将任务挂起
-		TCB_Task[OS_PrioCur].DLy= ticks;                      //设置TCB中任务延时节拍数
-		OS_EXIT_CRITICAL();                                   //退出临界区
-		OS_Sched();                                           //任务调度
+		OS_ENTER_CRITICAL();                                  
+		OSDelPrioRdy(OS_PrioCur);                             
+		TCB_Task[OS_PrioCur].DLy= ticks;                      
+		OS_EXIT_CRITICAL();                                   
+		OS_Sched();                                           
 		//return ;
 	}
 }
 
 #if	OS_USE_EVENT_Sem	> 0
-/*---------------------------------------
--* File: OS_SemCreate
--* Description：创建信号量
--* Arguments:  	cnt		信号量初始值
--*---------------------------------------*/
+
 ECB * OS_SemCreate(unsigned char cnt)
 {
 	ECB * p;
@@ -278,12 +223,8 @@ ECB * OS_SemCreate(unsigned char cnt)
 	return p;
 }
 
-/*---------------------------------------
--* File: OS_SemPend
--* Description：请求信号量
--* Arguments:  	pevent		信号量指针
--* 			  	time		等待时间，0为无限等待
--*---------------------------------------*/
+
+
 void OS_SemPend(ECB  *pevent,unsigned char time)
 {
 	unsigned int cpu_sr;
@@ -309,11 +250,6 @@ void OS_SemPend(ECB  *pevent,unsigned char time)
 	OS_EXIT_CRITICAL();
 }
 
-/*---------------------------------------
--* File: OS_SemPost
--* Description：释放信号量
--* Arguments:  	pevent		信号量指针
--*---------------------------------------*/
 void OS_SemPost(ECB  *pevent)
 {
 	unsigned int cpu_sr;
@@ -343,11 +279,7 @@ void OS_SemPost(ECB  *pevent)
 	OS_EXIT_CRITICAL();
 }
 
-/*---------------------------------------
--* File: OS_SemDel
--* Description：删除信号量,在这之前需要删除操作此信号量的所以任务
--* Arguments:  	pevent		信号量指针
--*---------------------------------------*/
+
 void OS_SemDel(ECB  *pevent)
 {
 	unsigned int cpu_sr;
@@ -360,11 +292,7 @@ void OS_SemDel(ECB  *pevent)
 #endif
 
 #if	OS_USE_EVENT_Mutex	> 0
-/*---------------------------------------
--* File: OS_MutexCreate
--* Description：创建互斥信号量
--* Arguments:  	void
--*---------------------------------------*/
+
 ECB * OS_MutexCreate(void)
 {
 	ECB * p;
@@ -374,18 +302,14 @@ ECB * OS_MutexCreate(void)
 	return p;
 }
 
-/*---------------------------------------
--* File: OS_MutexPend
--* Description：请求互斥信号量
--* Arguments:  	pevent		互斥信号量指针
--*---------------------------------------*/
+
 void OS_MutexPend(ECB  *pevent)
 {
 	unsigned int cpu_sr;
 	OS_ENTER_CRITICAL();
-	if(pevent ->Prio==OS_MAX_Task)//资源没被占用
+	if(pevent ->Prio==OS_MAX_Task)
 	{
-		pevent ->Prio=OS_PrioCur;			//记录占用资源任务的优先级
+		pevent ->Prio=OS_PrioCur;			
 		pevent ->Cnt=OS_PrioCur;			//记录申请资源任务的优先级
 		OS_EXIT_CRITICAL();
 		return ;
@@ -395,7 +319,7 @@ void OS_MutexPend(ECB  *pevent)
 		pevent->OSEventTbl|=0x01<<OS_PrioCur;//添加到等待表
 		OSDelPrioRdy(OS_PrioCur);			//从就绪表中删除
 		OS_EXIT_CRITICAL();
-		OS_Sched();							//优先级不提高，直接调度
+		OS_Sched();							
 		return ;
 	}
 	else									//如果上一次申请资源的任务的优先级比此次任务低
@@ -407,28 +331,24 @@ void OS_MutexPend(ECB  *pevent)
 			OS_Sched();//直接调度，不给于运行,直到占用资源任务处于就绪状态
 			OS_ENTER_CRITICAL();
 		}	
-		OSDelPrioRdy(pevent ->Cnt);		//从就绪表中删除占用资源的任务(上一次"高"优先级申请资源任务)
-		pevent ->Cnt=OS_PrioCur;			//记录申请资源任务的优先级	
-		while(pevent ->Prio!=OS_MAX_Task)	//如果资源没被释放
+		OSDelPrioRdy(pevent ->Cnt);		
+		pevent ->Cnt=OS_PrioCur;				
+		while(pevent ->Prio!=OS_MAX_Task)	
 		{
-				p_TCBHightRdy=&TCB_Task[pevent ->Prio];//间接提升资源任务的优先级为此等待任务的优先级
-				TCB_Task[OS_PrioCur].OSTCBStatPend=OS_STAT_MUTEX_DLY;//标记为任务在等待资源释放
+				p_TCBHightRdy=&TCB_Task[pevent ->Prio];
+				TCB_Task[OS_PrioCur].OSTCBStatPend=OS_STAT_MUTEX_DLY;
 				OS_EXIT_CRITICAL();
-				OSCtxSw();					//一直提升占用资源任务的优先级，等待资源释放
+				OSCtxSw();					
 				OS_ENTER_CRITICAL();
 		}
-		TCB_Task[OS_PrioCur].OSTCBStatPend=OS_STAT_MUTEX_NO_DLY;//取消标记
-		pevent ->Prio=OS_PrioCur;			//更新占用资源任务的优先级
+		TCB_Task[OS_PrioCur].OSTCBStatPend=OS_STAT_MUTEX_NO_DLY;
+		pevent ->Prio=OS_PrioCur;			
 		OS_EXIT_CRITICAL();
 		return ;
 	}
 }
 
-/*---------------------------------------
--* File: OS_SemPost
--* Description：释放互斥信号量
--* Arguments:  	pevent		互斥信号量指针
--*---------------------------------------*/
+
 void OS_MutexPost(ECB  *pevent)
 {
 	unsigned char	OS_ECB_Prio;
@@ -443,17 +363,13 @@ void OS_MutexPost(ECB  *pevent)
 				OS_ECB_Prio++);
 		pevent->OSEventTbl&=~(0x01<<OS_ECB_Prio);//从等待表中删除
 		OSSetPrioRdy(OS_ECB_Prio);				//添加等待表中优先级最高的任务到就绪表中
-		OSSetPrioRdy(OS_PrioCur);				//恢复占用资源的任务到就绪表中(提升优先级时会把低优先级的申请资源的任务删除掉)
+		OSSetPrioRdy(OS_PrioCur);				
 	}
 	OS_EXIT_CRITICAL();
 	OS_Sched();
 }
 
-/*---------------------------------------
--* File: OS_MutexDel
--* Description：删除信号量,在这之前需要删除操作此信号量的所以任务
--* Arguments:  	pevent		信号量指针
--*---------------------------------------*/
+
 void OS_MutexDel(ECB  *pevent)
 {
 	unsigned int cpu_sr;
@@ -466,12 +382,7 @@ void OS_MutexDel(ECB  *pevent)
 #endif
 
 #if	OS_USE_EVENT_Q		> 0
-/*---------------------------------------
--* File: OS_QCreate
--* Description：请求消息队列
--* Arguments:  	start		消息队列存储地址
--*				size		消息队列大小
--*---------------------------------------*/
+
 ECB * OS_QCreate(void	*start[],unsigned char size)
 {
 	ECB * p;
@@ -483,12 +394,7 @@ ECB * OS_QCreate(void	*start[],unsigned char size)
 	return p;
 }
 
-/*---------------------------------------
--* File: OS_QPend
--* Description：申请消息队列
--* Arguments:  	pevent		消息队列指针
--* 			  	opt		:0为立即返回函数		1为阻塞函数
--*---------------------------------------*/
+
 void * OS_QPend(ECB  *pevent,unsigned char time,unsigned char opt)
 {
 	int addr;
@@ -518,12 +424,7 @@ void * OS_QPend(ECB  *pevent,unsigned char time,unsigned char opt)
 	return (*((pevent->Addr)+addr));	
 }
 
-/*---------------------------------------
--* File: OS_QPost
--* Description：发送消息队列
--* Arguments:  	pevent		消息队列指针
--*				pmsg		要发送消息的地址
--*---------------------------------------*/
+
 void OS_QPost(ECB  *pevent,void * pmsg)
 {
 	unsigned char	OS_ECB_Prio;
@@ -551,11 +452,6 @@ void OS_QPost(ECB  *pevent,void * pmsg)
 	return ;
 }
 
-/*---------------------------------------
--* File: OS_QDel
--* Description：删除信号量,在这之前需要删除操作此信号量的所有任务
--* Arguments:  	pevent		信号量指针
--*---------------------------------------*/
 void OS_QDel(ECB  *pevent)
 {
 	unsigned int cpu_sr;
